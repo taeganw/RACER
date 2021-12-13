@@ -1,0 +1,251 @@
+---
+- name: Import EPEL GPG Key
+  rpm_key: key=https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+    state=present
+  become: true
+  when: ansible_distribution_major_version|int <= 7 and ansible_os_family == "RedHat"
+
+- name: Check for EPEL repo
+  yum: name=https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    state=present
+  become: true
+  when: ansible_distribution_major_version|int <= 7 and ansible_os_family == "RedHat"
+
+#- name: Install Python on Centos8
+#  raw: dnf install -y python2 python3
+#  become: true
+#  when: ansible_distribution_major_version|int >= 8 and ansible_python_version|int < 3.6
+#          and ansible_system == "Linux" and ansible_os_family !="Debian"
+
+#- name: Symlink Python to Python3 for EL8/Fedora
+#  file:
+#    src: /usr/bin/python3
+#    dest: /usr/bin/python
+#    state: link
+#  when: ansible_distribution_major_version|int >= 8 and ansible_python_version|int < 3.6
+#          and ansible_system == "Linux" and ansible_os_family !="Debian"
+#  ignore_errors: true
+
+#- name: Switch to Python3 by Default (Fedora/EL8)
+#  command: alternatives --install /usr/bin/python python /usr/bin/python3 1
+#  when: ansible_python_version|int < 3.6 and ansible_distribution_major_version|int >= 8
+#        and ansible_system == "Linux" and ansible_os_family !="Debian"
+#  ignore_errors: true
+
+#- name: Install NRPE and Common Plugins
+#  yum:
+#    name: ['nrpe', 'nagios-plugins-load', 'nagios-plugins-uptime', 'nagios-plugins-swap', 'nagios-plugins-procs',
+#    'nagios-plugins-users', 'nagios-plugins-disk', 'nagios-plugins-tcp']
+#    state: present
+#  become: true
+#  when: ansible_distribution_major_version|int <= 7 and ansible_os_family == "RedHat"
+
+- name: Install EPEL release
+  dnf:
+    name: ['epel-release','nrpe']
+    state: present
+  become: true
+  when: ansible_system == "Linux" and ansible_os_family != "Debian"
+
+- name: Install nagios packages and common plugins Centos8
+  yum:
+    name: ['gcc','glibc','glibc-common','wget','perl','gd','gd-devel','unzip','zip','tar']
+    state: present
+  become: true
+  when: ansible_system == "Linux" and ansible_os_family != "Debian"
+
+- name: Install nagios packages on Ubuntu
+  apt:
+    name: ['selinux-utils','gcc','build-essential','wget','perl','libgd-dev','unzip','zip','tar']
+    state: present
+  become: true
+  when: ansible_system == "Linux" and ansible_os_family == "Debian"
+
+#- name: Install NRPE and Common Plugins for Centos8
+#  dnf:
+#    name: ['nrpe', 'nagios-plugins-load', 'nagios-plugins-uptime', 'nagios-plugins-swap', 'nagios-plugins-procs',
+#    'nagios-plugins-users', 'nagios-plugins-disk', 'nagios-plugins-tcp']
+#    state: present
+#  become: true
+#  when: ansible_distribution_major_version|int >= 8 and ansible_system == "Linux" and ansible_os_family != "Debian"
+
+- name: Install NRPE and monitoring for Ubuntu
+  apt:
+    name: ['nagios-nrpe-server','monitoring-plugins']
+    state: present
+  become: true
+  when: ansible_system == "Linux" and ansible_os_family == "Debian"
+
+- name: Add Nagios Group
+  command: groupadd nagcmd
+  ignore_errors: true
+  become: true
+  when: ansible_system == "Linux"
+
+- name: Add Nagios User
+  command: useradd nagios -p nagios -G nagcmd
+  ignore_errors: true
+  become: true
+  when: ansible_system == "Linux"
+
+- name: Download Nagios Plugins
+  command: chdir=/tmp/ wget https://nagios-plugins.org/download/{{nagios_plugins_release_version}}.tar.gz
+  when: ansible_system == "Linux"
+
+- name: Extract Nagios Plugins
+  command: chdir=/tmp/ tar -zxvf {{nagios_plugins_release_version}}.tar.gz
+  when: ansible_system == "Linux"
+
+- name: Run Configure from build directory Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} ./configure --with-nagios-user=nagios --with-nagios-group=nagios
+  ignore_errors: true
+  become: true
+  when: ansible_system == "Linux"
+
+- name: Make Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} make
+  become: true
+  when: ansible_system == "Linux"
+
+- name: Make Install Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} make install
+  become: true
+  when: ansible_system == "Linux"
+
+#- name: Check if BSD ports structure exists
+#  stat:
+#    path: /usr/ports/net-mgmt/nagios-plugins/distinfo
+#  when: ansible_system == "FreeBSD"
+#  register: bsd_ports_structure
+#  ignore_errors: true
+
+#- name: Fetch new BSD ports tree, this might take a while.
+#  command: portsnap auto
+#  become: true
+#  when: ansible_system == "FreeBSD" and bsd_ports_structure.stat.exists
+
+#- name: Install NRPE and Common Plugins for FreeBSD, this might take a while.
+#  pkgng:
+#    name: ['nrpe3', 'nagios-plugins']
+#  become: true
+#  when: ansible_system == "FreeBSD"
+
+#- name: Install libsemanage-python
+#  yum:
+#    name: ['libsemanage-python']
+#    state: present
+#  become: true
+#  when: ansible_distribution_major_version|int <= 7 and ansible_os_family == "RedHat"
+#  ignore_errors: true
+
+- name: Setup NRPE client configuration
+  template:
+    src=nrpe.cfg.j2
+    dest=/etc/nagios/nrpe.cfg
+    force=yes
+  become: true
+  when: ansible_system == "Linux"
+
+#- name: Setup NRPE client configuration on FreeBSD
+#  template:
+#    src=nrpe.cfg.j2
+#    dest=/usr/local/etc/nrpe.cfg
+#    force=yes
+#  become: true
+#  when: ansible_system == "FreeBSD"
+
+#- name: Copy mdadm check_raid plugin
+#  copy:
+#    src=check_raid
+#    dest=/usr/lib64/nagios/plugins/check_raid
+#    mode="a+x"
+#  become: true
+#  when: ansible_system == "Linux" and ansible_os_family != "Debian"
+
+#- name: Copy uptime check tool for FreeBSD
+#  copy:
+#    src=bsd_check_uptime.sh
+#    dest=/usr/local/libexec/nagios/bsd_check_uptime
+#    mode="a+x"
+#  become: true
+#  when: ansible_system == "FreeBSD"
+
+# SELinux boolean for nagios
+#- name: Apply SELinux boolean nagios_run_sudo
+#  seboolean: name=nagios_run_sudo state=yes persistent=yes
+#  ignore_errors: true
+#  when: ansible_distribution_major_version|int <= 7
+#  become: true
+
+# SELinux boolean for nagios
+#- name: Apply SELinux boolean logging_syslogd_run_nagios_plugins
+#  seboolean: name=logging_syslogd_run_nagios_plugins state=yes persistent=yes
+#  ignore_errors: true
+#  when: ansible_distribution_major_version|int <= 7
+#  become: true
+
+- name: set Enforce for SELINUX
+  command: getenforce
+  become: true
+
+- name: set Enforce to passive
+  command: setenforce 0
+  ignore_errors: true
+  become: true
+
+- name: Start NRPE service
+  command: systemctl restart nrpe.service
+  ignore_errors: true
+  when: ansible_distribution_major_version|int >= 7 and ansible_system == "Linux" and ansible_os_family !="Debian"
+  become: true
+
+#- name: Enable NRPE service on FreeBSD
+#  lineinfile:
+#    path: /etc/rc.conf
+#    line: nrpe3_enable="YES"
+#    state: present
+#    backup: yes
+#  when: ansible_system == "FreeBSD"
+
+#- name: Start NRPE service on FreeBSD
+#  service:
+#    name: nrpe3
+#    enabled: yes
+#    state: restarted
+#  when: ansible_system == "FreeBSD"
+
+- name: Set NRPE to start on boot
+  command: systemctl enable nrpe.service
+  ignore_errors: true
+  when: ansible_distribution_major_version|int >= 7 and ansible_os_family == "RedHat"
+  become: true
+
+- name: Start NRPE service (EL6)
+  command: service nrpe restart
+  ignore_errors: true
+  when: ansible_distribution_major_version|int <= 6 and ansible_os_family != "Debian"
+  become: true
+
+- name: Set NRPE to start on boot (EL6)
+  command: chkconfig nrpe on
+  ignore_errors: true
+  when: ansible_distribution_major_version|int <= 6 and ansible_os_family != "Debian"
+  become: true
+
+- name: Start NRPE service (Debian)
+  command: systemctl restart nagios-nrpe-server
+  ignore_errors: true
+  when: ansible_os_family == "Debian"
+  become: true
+
+- name: Start NRPE service (Debian)
+  command: service nagios-nrpe-server start
+  ignore_errors: true
+  when: ansible_os_family == "Debian"
+  become: true
+
+- name: Enable NRPE service (Debian)
+  command: systemctl enable nagios-nrpe-server
+  ignore_errors: true
+  when: ansible_os_family == "Debian"
+  become: true

@@ -1,0 +1,38 @@
+---
+#
+# Playbook to install nagios, trac, wazuh, clients and servrees
+# generate service checks based on Ansible inventory
+#
+
+# role for nagios clients via NRPE
+- hosts: all:!switches:!oobservers:!nagios:!idrac:!supermicro_6048r:!supermicro_6018r:!supermicro_1028r:!freenas:!devices:!dns_only
+  remote_user: "{{ ansible_system_user }}"
+  roles:
+    - { role: nagios_client }
+    - { role: firewall_client, when: manage_firewall_client|bool }
+
+# role for nagios server
+- hosts: nagios
+  remote_user: "{{ ansible_system_user }}"
+  roles:
+    - { role: nagios }
+    - { role: firewall, when: manage_firewall|bool }
+    - { role: instructions }
+
+# role for trac server
+- hosts: trac
+  remote_user: "{{ ansible_system_user }}"
+  roles:
+    - { role: trac }
+
+# role for wazuh SecurityOnion
+- hosts: LinuxClients1
+  remote_user: "{{ ansible_system_user }}"
+  roles:
+    - { role: nix_monitor }
+
+- hosts: WindowsClients1
+  remote_user: "{{ ansible_system_user }}"
+  roles:
+    - { role: win_monitor }
+

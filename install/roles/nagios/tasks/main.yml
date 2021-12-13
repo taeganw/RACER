@@ -1,0 +1,262 @@
+---
+# Playbook to install nagios server and generate hosts/checks
+# This also installs NRPE on clients for more in-depth checks based on
+# Ansible inventory
+# Configure Nagios on Centos8
+
+- name: Import EPEL GPG Key
+  rpm_key: key=https://dl.fedoraproject.org/pub/epel/RPM-GPG-KEY-EPEL-7
+    state=present
+  become: true
+
+- name: Check for EPEL repo
+  yum: name=https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
+    state=present
+  become: true
+
+- name: Install nagios packages and common plugins
+  yum:
+#    name: ['nagios-plugins','nagios-plugins-uptime','httpd-tools', 'mod_ssl', 'openssl', 'net-snmp-utils', 'freeipmi','httpd','php','gcc','glibc','glibc-common','wget','perl','gd','gd-devel','unzip','zip','tar']
+    name: ['nagios-plugins','nrpe','httpd-tools', 'mod_ssl', 'openssl', 'net-snmp-utils', 'freeipmi','httpd','php','gcc','glibc','glibc-common','wget','perl','gd','gd-devel','unzip','zip','tar']
+    state: present
+  become: true
+
+- name: Setup nagios SSL HTTPD vhost
+  copy: src=nagios.conf dest=/etc/httpd/conf.d/
+  become: true
+
+- name: Add Nagios Group
+  command: groupadd nagcmd
+  ignore_errors: true
+  become: true
+
+- name: Add Nagios User
+  command: useradd nagios -p nagios -G nagcmd
+  ignore_errors: true
+  become: true
+
+- name: Add apache to nagios Group
+  command: usermod -a -G nagcmd apache
+  ignore_errors: true
+  become: true
+
+- name: Download Nagios Core from official site
+  command: chdir=/tmp/ wget https://assets.nagios.com/downloads/nagioscore/releases/{{nagios_release_version}}.tar.gz
+
+- name: Extract Nagios
+  command: chdir=/tmp/ tar -zxvf {{nagios_release_version}}.tar.gz
+
+- name: Download Nagios Plugins
+  command: chdir=/tmp/ wget https://nagios-plugins.org/download/{{nagios_plugins_release_version}}.tar.gz
+
+- name: Extract Nagios Plugins
+  command: chdir=/tmp/ tar -zxvf {{nagios_plugins_release_version}}.tar.gz
+
+- name: Configure Build Directory
+  command: chdir=/tmp/{{nagios_release_version}} ./configure --with-nagios-group=nagios --with-command-group=nagcmd
+
+- name: Make ALL
+  command: chdir=/tmp/{{nagios_release_version}} make all
+  become: true
+
+- name: Make Install Init
+  command: chdir=/tmp/{{nagios_release_version}} make install
+  become: true
+
+- name: Make Install Init
+  command: chdir=/tmp/{{nagios_release_version}} make install-init
+  become: true
+
+- name: Make Install Config
+  command: chdir=/tmp/{{nagios_release_version}} make install-config
+  become: true
+
+- name: Make Install Command Mode
+  command: chdir=/tmp/{{nagios_release_version}} make install-commandmode
+  become: true
+
+- name: Make Install Nagios Web Interface
+  command: chdir=/tmp/{{nagios_release_version}} make install-webconf
+  become: true
+
+- name: Run Configure from build directory Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} ./configure --with-nagios-user=nagios --with-nagios-group=nagios
+  ignore_errors: true
+  become: true
+
+- name: Make Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} make
+  become: true
+
+- name: Make Install Nagios Plugins
+  command: chdir=/tmp/{{nagios_plugins_release_version}} make install
+  become: true
+
+- name: Check nagios Users
+  stat: path=/usr/local/nagios/etc/passwd
+  ignore_errors: true
+  register: nagios_user_pwfile_exists
+  become: true
+
+- name: Create empty password file
+  command: touch /usr/local/nagios/etc/htpasswd.users
+  args:
+    creates: /etc/nagios/passwd
+  when: nagios_user_pwfile_exists != 0
+  become: true
+
+- name: Create nagios admin user
+  command: htpasswd -b -c /usr/local/nagios/etc/htpasswd.users {{nagios_username}} {{nagios_password}}
+  ignore_errors: true
+  when: nagios_user_pwfile_exists != 0
+  become: true
+
+- name: Create nagios guest user
+  command: htpasswd -b /usr/local/nagios/etc/htpasswd.users {{nagios_ro_username}} {{nagios_ro_password}}
+  when: nagios_create_guest_user|bool
+  become: true
+
+- name: Configure nagios main configuration
+  copy: src=nagios.cfg dest=/usr/local/nagios/etc/nagios.cfg
+  become: true
+
+- name: Generate the nagios conf.d directory
+  become: true
+  file:
+    path: /usr/local/nagios/etc/conf.d
+    state: directory
+
+- name: Generate the nagios monitoring templates
+  template: src={{ item + ".j2" }}
+            dest=/usr/local/nagios/etc/conf.d/{{ item }}
+            force=yes
+  with_items:
+#    - webservers.cfg
+    - servers.cfg
+#    - elkservers.cfg
+#    - elasticsearch.cfg
+#    - dns.cfg
+#    - devices.cfg
+#  register: nagios_needs_restart
+  become: true
+
+- name: Generate the nagios contact template and localhost config
+  template: src={{ item + ".j2" }}
+            dest=/usr/local/nagios/etc/objects/{{ item }}
+            force=yes
+  with_items:
+    - contacts.cfg
+    - localhost.cfg
+  become: true
+
+- name: Generate the nagios monitoring templates
+  template: src={{ item + ".j2" }}
+            dest=/usr/local/nagios/etc/conf.d/{{ item }}
+            force=yes
+  with_items:
+#    - oobservers.cfg
+#    - switches.cfg
+#    - webservers.cfg
+    - servers.cfg
+#    - servers_with_mdadm_raid.cfg
+    - commands.cfg
+#    - elkservers.cfg
+#    - elasticsearch.cfg
+#    - idrac.cfg
+#    - supermicro_6018r.cfg
+#    - supermicro_6048r.cfg
+#    - supermicro_1028r.cfg
+#    - jenkins.cfg
+#    - dns.cfg
+#    - dns_with_mdadm_raid.cfg
+#    - freenas.cfg
+#    - devices.cfg
+#    - dns_only.cfg
+  become: true
+
+- name: Generate additional commands.cfg from template
+  template: src=objects_commands.cfg.j2
+            dest=/usr/local/nagios/etc/objects/commands.cfg
+            force=yes
+  become: true
+
+- name: Generate the nagios user CGI template
+  template: src={{ item + ".j2" }}
+            dest=/usr/local/nagios/etc/{{ item }}
+  with_items:
+    - cgi.cfg
+    - services.cfg
+  become: true
+
+# SELinux boolean for nagios
+#- name: Apply SELinux boolean nagios_run_sudo
+#  seboolean: name=nagios_run_sudo state=yes persistent=yes
+#  ignore_errors: true
+#  become: true
+
+# SELinux boolean for nagios
+#- name: Apply SELinux boolean logging_syslogd_run_nagios_plugins
+#  seboolean: name=logging_syslogd_run_nagios_plugins state=yes persistent=yes
+#  ignore_errors: true
+#  become: true
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1291718
+- name: Create nagios socket tmp files
+  file:
+    path=/var/log/nagios/rw
+    state=directory
+    owner=nagios
+    group=nagios
+    mode=0777
+    seuser=system_u
+  become: true
+
+# nagios upgrade to 4.2.4 requires this
+# todo: file bug
+- name: Create nagios results directory
+  file:
+    path=/var/log/nagios/spool/checkresults
+    state=directory
+    owner=nagios
+    group=nagios
+    mode=0755
+    seuser=system_u
+  become: true
+
+# change listening port for http to match group_vars/all.yml
+- name: Set HTTP Listen Port
+  lineinfile: dest=/etc/httpd/conf/httpd.conf \
+          regexp="^Listen" \
+          line="Listen {{nagios_http_port}}"
+  become: true
+
+- name: Reload Systemd if needed
+  command: systemctl daemon-reload
+  become: true
+
+- name: Start nagios service
+  command: systemctl restart nagios.service
+  become: true
+
+- name: Set nagios to start on boot
+  command: systemctl enable nagios.service
+  ignore_errors: true
+  become: true
+
+- name: Setup HTTPD service
+  command: systemctl enable httpd
+  ignore_errors: true
+  become: true
+
+- name: Restart HTTPD service
+  command: systemctl restart httpd
+  ignore_errors: true
+  become: true
+
+- name: set Enforce for SELINUX
+  command: getenforce
+  become: true
+
+- name: set Enforce to passive
+  command: setenforce 0
+  become: true
