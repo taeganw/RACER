@@ -21,8 +21,10 @@ From the root directory run the playbook with
 ```
 ansible-playbook -i hosts ./install/configure-environment.yml -K
 ```
+
 **-i specfies the hosts file to use**
-**-K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault) **
+
+**-K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault)**
 
 ### Supporting Github Repositories in this creation ###
 - [Security Onion Github Repository](https://github.com/Security-Onion-Solutions/security-onion)
