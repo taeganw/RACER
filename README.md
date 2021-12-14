@@ -11,6 +11,8 @@ Educational resource for cybersecurity research and software analysis is critica
 Once the 3 files are configured to your environment, ensure you can ssh into each machine you would like to configure. If there are services that you do not need in the environment, simply leave the group in the hosts field blank.
 
 From the root directory run the playbook with
-> ansible-playbook -i hosts ./install/configure-environment.yml -K
-**-i specfies the hosts file to use
--K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault) **
+'''
+ansible-playbook -i hosts ./install/configure-environment.yml -K
+'''
+**-i specfies the hosts file to use**
+**-K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault) **
