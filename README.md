@@ -16,3 +16,9 @@ ansible-playbook -i hosts ./install/configure-environment.yml -K
 ```
 **-i specfies the hosts file to use**
 **-K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault) **
+
+### Supporting Github Repositories in this creation
+https://github.com/Security-Onion-Solutions/security-onion
+https://github.com/sadsfae/ansible-nagios
+https://github.com/wazuh/wazuh-ansible
+https://github.com/bestpractical/rtir
