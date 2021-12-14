@@ -1,6 +1,13 @@
 # RACER - Resilient Ansible Cyber Education Range
 Educational resource for cybersecurity research and software analysis is critical to understanding the nature of communication across a critical infrastructure network. A resilient cyber range for students to practice creating a dynamic defense-in-depth network leverages multiple systems and software to create a realistic learning environment. Providing total visibility through services for inventory management, state monitoring, event monitoring, and incident management need to exist outside of the scope of the environment to ensure the productivity of the lab and its exercises. With a primary goal to use open-source software throughout the environment, this research highlights the use of resilience of the lab through the creation of Ansible scripts. These Ansible scripts remove the human factor from the creation of services such as Nagios, Trac, Security Onion, Suricata, and RT-IR to provide total visibility and fast reproduction of the environment to safely analyze and practice blue team and red team concepts. The final scripts created can be found on Github at https://github.com/taeganw/RACER where they will continue to grow into living code.
 
+## Completed Tasks
+- [x] Nagios
+- [x] Trac
+- [ ] Wazuh
+- [ ] Suricata
+- [ ] RT-IR
+
 ## How to Run the Playbook
 **Varaibles File** - Ansible has 3 main files and folders for operation. Variables that can be changed by the user before running the script are found in the all.yml file in the group\_vars folder.
 
@@ -17,8 +24,9 @@ ansible-playbook -i hosts ./install/configure-environment.yml -K
 **-i specfies the hosts file to use**
 **-K prompts for a password to elevate privilleges on the remote machine (a more secure method would be to implement Ansible Vault) **
 
-### Supporting Github Repositories in this creation
-https://github.com/Security-Onion-Solutions/security-onion
-https://github.com/sadsfae/ansible-nagios
-https://github.com/wazuh/wazuh-ansible
-https://github.com/bestpractical/rtir
+### Supporting Github Repositories in this creation ###
+- [Security Onion Github Repository](https://github.com/Security-Onion-Solutions/security-onion)
+- [sadsfae - Ansible Nagios](https://github.com/sadsfae/ansible-nagios)
+- [wazuh - Wazuh-ansible](https://github.com/wazuh/wazuh-ansible)
+- [BestPractical - RT-IR](https://github.com/bestpractical/rtir)
+
